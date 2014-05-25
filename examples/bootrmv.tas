@@ -1,0 +1,167 @@
+; ***************************************
+; * Anti-StartDisk (ASD)		*
+; * Ruling author : Maciej Witkowiak '96*
+; ***************************************
+
+;13.06.1999 - ported to cross-compiler
+
+;this code was written as DESK_ACC, that's why it is checking
+;from which disk it was executed
+
+;could be fairly optimized by taking disk name with kernal routines
+;and making one DBox with string pointers on zpage
+
+		jmp Start
+
+;data segment - due to TASM limitations all data references have to
+;		be defined before their use in macros
+
+Parametry	.byte DEF_DB_POS | 1
+		.byte DBTXTSTR, TXT_LN_X, TXT_LN_2_Y
+		.word DyskTekst
+		.byte DBTXTSTR, TXT_LN_X, TXT_LN_3_Y
+		.word NazwaDysku
+		.byte OK, DBI_X_0, DBI_Y_2
+		.byte DISK, DBI_X_1, DBI_Y_2
+		.byte CANCEL, DBI_X_2, DBI_Y_2
+		.byte NULL
+
+Para2		.byte DEF_DB_POS | 1
+		.byte DBTXTSTR, TXT_LN_X, TXT_LN_2_Y
+		.word WlozTekst
+		.byte DBTXTSTR, TXT_LN_X, TXT_LN_3_Y
+		.word StacjaTekst
+		.byte OK, DBI_X_0, DBI_Y_2
+		.byte CANCEL, DBI_X_2, DBI_Y_2
+		.byte NULL
+
+Para3		.byte DEF_DB_POS | 1
+		.byte DBTXTSTR, TXT_LN_X, TXT_LN_2_Y
+		.word Wloz2
+		.byte DBTXTSTR, TXT_LN_X, TXT_LN_3_Y
+		.word StacjaTekst
+		.byte OK, DBI_X_2, DBI_Y_2
+		.byte NULL
+
+Para4		.byte DEF_DB_POS | 1
+		.byte DBTXTSTR, TXT_LN_X, TXT_LN_2_Y
+		.word ErrTxt
+		.byte OK, DBI_X_2, DBI_Y_2
+		.byte NULL
+
+ErrTxt		.byte BOLDON,"Error happened...",PLAINTEXT,NULL
+WlozTekst	.byte BOLDON,"Insert new disk",PLAINTEXT,NULL
+StacjaTekst	.byte BOLDON,"into drive.",PLAINTEXT,NULL
+DyskTekst	.byte BOLDON,"Remove bootstamp on:",PLAINTEXT,NULL
+Wloz2		.byte BOLDON,"Insert disk ",PLAINTEXT
+
+StartDysk	;.block 17		; miejsce na 16 znakow nazwy dysku + 1
+		.rept 17
+		.byte NULL
+		.next
+
+NazwaDysku	;.block 17		; miejsce na 16 znakow nazwy dysku + 1
+		.rept 17
+		.byte NULL
+		.next
+
+;code segment
+
+Start		jsr WezNazweDysku	; nazwa dysku
+		jsr Skopiuj		; z ktorego startowal (jest to konieczne do powrotu)
+		lda screencolors	; zamalowywanie jednym kolorem z Preferences
+		ldx #0			; calego ekranu
+kolorki 	sta COLOR_MATRIX,x	; kolorowe ikonki zostawiaja kolorowe tlo
+		sta COLOR_MATRIX + 256,x
+		sta COLOR_MATRIX + 512,x
+		inx
+		bne kolorki
+kol2		sta COLOR_MATRIX + (3 * 256),x
+		inx
+		cpx # 256 - 24
+		bne kol2
+Pocz		#LoadW r0, Parametry   ; poczatkowe okienko dialogowe
+		jsr DoDlgBox
+		lda r0L 		; sprawdzanie poszczegolnych ikon
+		cmp #OK
+		bne Dalej1
+		jmp Rob 		; procedura konwersji
+Dalej1		cmp #DISK
+		bne Dalej2
+		jmp ZmianaDysku 	; procedura zmiany dyskietki
+Dalej2		jmp KoniecPracy 	; ikona CANCEL - wyjscie z programu
+
+WezNazweDysku				; przepisuje nazwe dysku do etykiety NazwaDysku
+		jsr OpenDisk		; nowy dysk
+		jsr GetDirHead		; wez jego naglowek
+		#LoadW r0, curDirHead + OFF_DISK_NAME  ; wektor na nazwe dysku
+		ldy #0			; przepisz nazwe
+Jeszcze 	lda (r0),y
+		cmp #$a0		; czy koniec
+		beq Koniec
+		sta NazwaDysku,y	; nie, pisz dalej
+		iny
+		cpy #16
+		bne Jeszcze
+Koniec		lda #NULL		; koniec - daj 0 na koniec tekstu
+		sta NazwaDysku,y
+		rts
+
+Skopiuj 				; kopiuje nazwe dysku, z ktorego prg. wystartowal
+		iny			; zwieksz y bo odliczanie do tylu
+Loop1		lda NazwaDysku-1,y	; przepisuj
+		sta StartDysk-1,y
+		dey			; zmniejsz
+		bne Loop1		; czy juz ?
+		rts
+
+ZmianaDysku				; wkladamy nowy dysk
+		#LoadW r0, Para2	; zrob okienko dialogowe
+		jsr DoDlgBox
+		lda r0L 		; sprawdz ktora ikona zostala nacisnieta
+		cmp #CANCEL
+		beq Dalej3
+		jsr WezNazweDysku	; ikona OK - nowa nazwa dysku
+Dalej3		jmp Pocz		; ikona CANCEL - powrot na poczatek
+
+KoniecPracy				; powrot do DeskTopu
+		jsr OpenDisk		; otworz dysk
+		jsr GetDirHead		; wez naglowek
+		ldx #0			; porownaj nazwe dysku
+Loop2		lda StartDysk,x 	; z nazwa dysku, z ktorego program startowal
+		beq Konie		; koniec nazwy
+		cmp curDirHead + OFF_DISK_NAME,x
+		bne Kon 		; nie zgadza sie
+		inx
+		cpx #16
+		bne Loop2		; sprawdzaj dalej
+Konie		lda curDirHead + OFF_DISK_NAME,x
+		cmp #$a0		; koniec nazwy ?
+		bne Kon 		; nie
+		;jsr RstrAppl		; powrot do DeskTopu
+		;#LoadW appMain, RstrAppl	;w stylu DESK_ACC
+		;rts
+
+		jmp EnterDeskTop		;w stylu APPLICATION
+
+Kon		#LoadW r0, Para3	; okienko zadajace zmiany dysku
+		jsr DoDlgBox
+		jmp KoniecPracy 	; ponownie sprawdz
+
+Rob					; podprogram usuwania znaku STARTDISK z DirHeadera
+		jsr GetDirHead
+		#beqx NonErr1
+		jmp Error
+NonErr1 	lda #0
+		sta curDirHead + OFF_GS_DTYPE
+		jsr PutDirHead
+		#beqx NonErr2
+		jmp Error
+NonErr2 	jmp Pocz
+
+Error					; zdarzyl sie blad
+		#LoadW r0, Para4       ; zrob okno z informacja
+		jsr DoDlgBox
+		jmp Pocz		; wroc do okna poczatkowego
+
+;ProgEnd				; koniec programu

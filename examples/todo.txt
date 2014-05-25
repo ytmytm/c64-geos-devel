@@ -1,0 +1,4 @@
+
+- C64 and C128 versions of PC-Joy driver and calibrator should be merged into one file with conditional assembly in few places
+- they should be optimized or even rewritten from scratch
+- there must exist a way to find end address (or length) of included source - for determining size in DeskAcessories

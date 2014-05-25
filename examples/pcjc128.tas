@@ -1,0 +1,208 @@
+
+;Calibrating application for PC-Joy input driver, in order to install that
+;driver you have to run this app. first
+;code is ready for optimizations, it needs 'em
+
+;this code is for GEOS 128 v2.0
+
+;Maciej 'YTM/Alliance' Witkowiak
+;back in '97
+;rewritten for GNU, TASM version with macros
+;I hope that it still works
+;23.6.99
+
+;ProgStart
+		jmp Start
+
+; Data section
+;--------------
+
+FileNF		.byte DEF_DB_POS | 1
+		.byte DBTXTSTR, 10, 20
+		.word FNF1
+		.byte DBTXTSTR, 10, 40
+		.word FNF2
+		.byte DISK, DBI_X_0, DBI_Y_2
+		.byte CANCEL, DBI_X_2, DBI_Y_2
+		.byte NULL
+
+FNF1		.byte BOLDON, "'128 PC-Joy' input driver", NULL
+FNF2		.byte "not found on disk.", PLAINTEXT, NULL
+
+PI		.byte DEF_DB_POS | 1
+		.byte DBVARSTR, 10, 20, a0L
+		.byte DBTXTSTR, 10, 40
+		.word Pr
+		.byte OK, DBI_X_2, DBI_Y_2
+		.byte NULL
+
+Pr		.byte "and press RETURN", PLAINTEXT, NULL
+Plug		.byte BOLDON, "Please plug in your PC joystick", NULL
+Mup		.byte BOLDON, "Keep maximum up", NULL
+Mdo		.byte BOLDON, "Keep maximum down", NULL
+Mle		.byte BOLDON, "Keep maximum left", NULL
+Mri		.byte BOLDON, "Keep maximum right", NULL
+
+xav		.byte 0
+yav		.byte 0
+ymi		.byte 0
+yma		.byte 0
+xmi		.byte 0
+xma		.byte 0
+yL		.byte 0
+yH		.byte 0
+xL		.byte 0
+xH		.byte 0
+
+Nazwa		.byte "128 PC-Joy",0
+TrNum		.byte 0
+SecNum		.byte 0
+
+; Code section
+;--------------
+
+Start		jsr OpenDisk
+		#LoadW r6, Nazwa
+		jsr FindFile
+		#beqx JestPCJ
+		jmp FileNot
+
+JestPCJ		ldy #1
+		lda (r5),y
+		sta TrNum
+		iny
+		lda (r5),y
+		sta SecNum
+		#LoadW a0, Plug
+		jsr Print
+		jsr GetX
+		stx xav
+		jsr GetY
+		stx yav
+		#LoadW a0, Mup
+		jsr Print
+		jsr GetY
+		stx ymi
+		#LoadW a0, Mdo
+		jsr Print
+		jsr GetY
+		stx yma
+		#LoadW a0, Mle
+		jsr Print
+		jsr GetX
+		stx xmi
+		#LoadW a0, Mri
+		jsr Print
+		jsr GetX
+		stx xma
+
+		lda yav
+		#sub ymi
+		sta ymi
+
+		lda xav
+		#sub xmi
+		sta xmi
+
+		#SubB yav, yma
+		#SubB xav, xma
+
+		#MoveB maxMouseSpeed, r0L
+		#LoadB r0H, NULL
+		sta r1H
+		#LoadB r1L, 16			;<-- may be different for other
+		jsr Divide			;joysticks
+		#LoadB r1H, NULL
+		#MoveB r0L, r1L
+
+		#MoveB ymi, r0L
+		jsr Divide
+		#MoveB r0L, yL
+
+		#MoveB yma, r0L
+		jsr Divide
+		#MoveB r0L, yH
+
+		#MoveB xmi, r0L
+		jsr Divide
+		#MoveB r0L, xL
+
+
+		#MoveB xma, r0L
+		jsr Divide
+		#MoveB r0L, xH
+
+		#MoveB xav, diskBlkBuf+13+6
+		#subv 6				;<-- center toleration
+		sta diskBlkBuf+12+6
+		lda xav
+		#addv 6
+		sta diskBlkBuf+14+6
+
+		#MoveW xL, diskBlkBuf+15+6
+
+		#MoveB yav, diskBlkBuf+18
+		#subv 5				;<-- center toleration
+		sta diskBlkBuf+17
+		lda yav
+		#addv 5
+		sta diskBlkBuf+19
+
+		#MoveW yL, diskBlkBuf+20
+
+		jsr WriteBuff
+
+		#LoadW r0, Nazwa		;set PC-Joy driver as
+		#LoadW r1, inputDevName		;current
+		ldx #r0
+		ldy #r1
+		jsr CopyString
+
+		#LoadW r6, Nazwa		;and load it
+		#LoadW r7, MOUSE_JMP_128
+		jsr GetFile
+		jsr MOUSE_JMP_128
+		jmp EnterDeskTop
+
+Divide		ldx #r0L
+		ldy #r1L
+		jmp Ddiv
+
+GetX		sei
+		#PushB cia1base
+		#LoadB cia1base, %01000000
+		jsr Wait4Me
+		ldx sidbase+$19
+		#PopB cia1base
+		cli
+		rts
+
+GetY		sei
+		#PushB cia1base
+		#LoadB cia1base, %01000000
+		jsr Wait4Me
+		ldx sidbase+$1a
+		#PopB cia1base
+		cli
+		rts
+
+Wait4Me		ldx #$66
+Wloop		nop
+		nop
+		nop
+		dex
+		bne Wloop
+		rts
+
+FileNot		#LoadW r0, FileNF
+		jsr DoDlgBox
+		#CmpBI r0L, CANCEL
+		beq GBD
+		jmp Start
+
+Print		#LoadW r0, PI
+		jmp DoDlgBox
+
+GBD		jmp EnterDeskTop
+
+;ProgEnd

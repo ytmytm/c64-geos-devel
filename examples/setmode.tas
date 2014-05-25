@@ -1,0 +1,21 @@
+
+;Small Auto-Exec app, which will take _REAL_ value of 40/80 DSP key from
+;ModeConfReg MMU and turn on the proper screen mode
+;needed for hacked GeoMakeBoot128
+;29-6-1998
+
+;Maciej 'YTM/Alliance' Witkowiak
+;23-6-1999
+;prepared for GNU, TASM versions with macros
+
+;ProgStart
+		lda mmu+5
+		ora #%10000000
+		sta mmu+5
+		lda mmu+5
+		and #%10000000
+		eor #%10000000
+		sta graphMode
+		jsr SetNewMode
+		jmp EnterDeskTop
+;ProgEnd

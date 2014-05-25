@@ -1,0 +1,149 @@
+;GEOS .cvt file header for TASM
+;by Maciej 'YTM/Alliance' Witkowiak
+;13.06.1999
+
+;This is header file suited for bootrmv.tas
+
+;all needed symbols are loaded here, DO NOT include them in your source
+
+.include const.inc
+.include diskdrv.inc
+.include geosmac.inc
+.include geossym.inc
+.include geossym2.inc
+.include inputdrv.inc
+.include jumptab.inc
+.include printdrv.inc
+
+ProgStart		= APP_RAM		;*this may be changed sometimes
+ProgEnd 	        = ProgStart-1		;*this have to be defined if you are
+						;making DESK_ACC
+ProgExec		= ProgStart		;*this should be defined in source code
+						;otherwise its execute address is in the
+						;beginning of the file
+
+ProgType		= APPLICATION		;*GEOS executable filetype
+
+; May be one of the:	  ASSEMBLY
+			; DESK_ACC
+			; APPLICATION
+			; PRINTER
+			; INPUT_DEVICE
+			; AUTO_EXEC
+			; INPUT_128
+
+;-----------------------------------------------------------------------------
+
+		*=(USR | $80)			;DOS filetype and track
+		.byte NULL			;sector
+
+		;.byte USR | $80		;DOS filetype
+		;.word NULL			;DOS T&S
+
+tmp=*
+		.text "BootStampRmv"		;*DOS filename (16 chars)
+
+		.for i=*, i<(tmp+16), i=i+1	;name padding
+		.byte $a0
+		.next
+
+		.word NULL			;header T&S, also nulled
+
+		.byte SEQUENTIAL		;structure, this template may
+						;generate only SEQUENTIAL files
+
+		.byte ProgType			;GEOS filetype
+		.byte 99			;*year
+		.byte 6 			;*month
+		.byte 13			;*day
+		.byte 15			;*hour
+		.byte 7				;*minute
+
+		.word NULL			;size, you should copy converted file with
+						;GEOS to get the real size of the file
+
+		.text "PRG formatted GEOS file V1.0"
+						;Convert stamp
+
+		*=*+$c4 			;some zeros
+
+						;here's the file header
+		.byte 3, 21			;size of icon (x,y)
+		.byte 63 | $80			;packer control char
+
+		;if you like hardcore try to edit icon here :)
+
+		.byte %11111111, %11111111, %11111111
+		.byte %10000000, %00000000, %00000001
+		.byte %10000000, %00000000, %00000001
+		.byte %10000000, %00000000, %00000001
+		.byte %10000000, %00000000, %00000001
+		.byte %10000000, %00000000, %00000001
+		.byte %10000000, %00000000, %00000001
+		.byte %10000000, %00000000, %00000001
+		.byte %10000000, %00000000, %00000001
+		.byte %10000000, %00000000, %00000001
+		.byte %10000000, %00000000, %00000001
+		.byte %10000000, %00000000, %00000001
+		.byte %10000000, %00000000, %00000001
+		.byte %10000000, %00000000, %00000001
+		.byte %10000000, %00000000, %00000001
+		.byte %10000000, %00000000, %00000001
+		.byte %10000000, %00000000, %00000001
+		.byte %10000000, %00000000, %00000001
+		.byte %10000000, %00000000, %00000001
+		.byte %10000000, %00000000, %00000001
+		.byte %11111111, %11111111, %11111111
+
+		.byte USR | $80 		;DOS filetype again
+		.byte ProgType			;GEOS filetype again
+		.byte SEQUENTIAL		;structure again
+		.word ProgStart 		;start address
+		.word ProgEnd			;end address (needed for DESK_ACC)
+		.word ProgExec			;execute address
+
+tmp=*
+		.text "BootStmpRmv"		;*class filename (12 chars)
+
+		.for i=*, i<(tmp+12), i=i+1	;name padding
+		.byte " "
+		.next
+
+		.text "V1.0"			;*class version ('V',major,'.',minor)
+		.byte NULL			;string termination
+
+		.word NULL
+
+		.byte %01000000			;*40/80 columns capability
+;B7 B6
+; 0  0	runs under 128 GEOS, but in 40 column mode only
+; 0  1	runs under 128 GEOS in 40 and 80 column modes
+; 1  0	DOES NOT RUN under 128 GEOS (deskTop will display dialog box)
+; 1  1	runs under 128 GEOS in 80 column mode only
+
+tmp=*
+		.text "Maciej Witkowiak"	;*author's name
+		.byte NULL			;string termination
+
+		.for i=*, i<(tmp+63), i=i+1	;name padding
+		.byte NULL
+		.next
+
+tmp=*
+		.text "Removes bootstamp from "		;*note on usage
+		.byte 13, "bootdisks."
+		.byte NULL			;string termination
+
+		.for i=*, i<(tmp+96), i=i+1	;header padding
+		.byte NULL
+		.next
+
+		.logical ProgStart
+
+;-----------------------------------------------------------------------------
+
+.include bootrmv.tas			;*file with source code of your program
+					;DO NOT forget to change it!!!
+;------------------------------------------------------------------------------
+
+		.here

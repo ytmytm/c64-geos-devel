@@ -1,0 +1,5 @@
+
+		jsr InitForIO
+		inc $d020
+		jsr DoneWithIO
+		jmp EnterDeskTop
